@@ -191,6 +191,7 @@ def _corpus_bleu(hypotheses: List[List[str]], references: List[List[str]]) -> fl
         import sacrebleu
         hyp_strs = [" ".join(h) for h in hypotheses]
         ref_strs = [" ".join(r) for r in references]
+        # force=True suppresses the sacrebleu detokenization warning
         return float(sacrebleu.corpus_bleu(hyp_strs, [ref_strs], force=True).score)
     except Exception:
         pass
@@ -211,7 +212,7 @@ def evaluate_bleu(
     device: str = "cpu",
     max_len: int = 100,
 ) -> float:
-    """Greedy-decode the entire test set and return corpus BLEU (0–100)."""
+    """Greedy-decode the entire test set and return corpus BLEU (0-100)."""
     model.eval()
     hypotheses: List[List[str]] = []
     references: List[List[str]] = []
@@ -275,7 +276,7 @@ def save_checkpoint(
     if extra:
         blob.update(extra)
     torch.save(blob, path)
-    print(f"[checkpoint] saved → {path}")
+    print(f"[checkpoint] saved -> {path}")
 
 
 def load_checkpoint(
@@ -284,7 +285,26 @@ def load_checkpoint(
     optimizer: Optional[torch.optim.Optimizer] = None,
     scheduler=None,
 ) -> int:
-    ckpt = torch.load(path, map_location="cpu")
+    """
+    Load checkpoint saved by save_checkpoint().
+
+    FIX: PyTorch >= 2.6 changed weights_only default to True, which blocks
+    unpickling custom classes like SimpleVocab stored inside the checkpoint.
+    We explicitly pass weights_only=False and allowlist SimpleVocab to handle
+    both old and new PyTorch versions safely.
+    """
+    import torch.serialization as _ser
+    from dataset import SimpleVocab
+
+    # Allowlist SimpleVocab so PyTorch 2.6+ does not block unpickling it.
+    try:
+        _ser.add_safe_globals([SimpleVocab])
+    except AttributeError:
+        pass  # PyTorch < 2.6 does not have add_safe_globals — safe to ignore
+
+    # weights_only=False is required because the checkpoint contains vocab objects.
+    ckpt = torch.load(path, map_location="cpu", weights_only=False)
+
     model.load_state_dict(ckpt["model_state_dict"])
     if optimizer is not None and ckpt.get("optimizer_state_dict"):
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
@@ -323,7 +343,7 @@ def run_training_experiment(
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[device] {device}")
 
-    # ─── W&B (optional, soft import) ──────────────────────────────────
+    # W&B (optional, soft import)
     try:
         import wandb
         wandb_run = wandb.init(
@@ -340,13 +360,13 @@ def run_training_experiment(
         print(f"[wandb] disabled: {e}")
         wandb_run = None
 
-    # ─── data ─────────────────────────────────────────────────────────
+    # data
     train_loader, val_loader, test_loader, src_vocab, tgt_vocab = make_dataloaders(
         batch_size=batch_size,
     )
     print(f"[vocab] src={len(src_vocab)}  tgt={len(tgt_vocab)}")
 
-    # ─── model / optim / sched / loss ─────────────────────────────────
+    # model / optim / sched / loss
     model = Transformer(
         src_vocab_size=len(src_vocab),
         tgt_vocab_size=len(tgt_vocab),
@@ -357,7 +377,7 @@ def run_training_experiment(
     model.tgt_vocab = tgt_vocab
 
     if use_noam:
-        # Noam expects base LR = 1.0
+        # Noam scheduler requires base lr=1.0 — the scale IS the learning rate
         optimizer = torch.optim.Adam(model.parameters(), lr=1.0,
                                      betas=(0.9, 0.98), eps=1e-9)
         scheduler = NoamScheduler(optimizer, d_model=d_model, warmup_steps=warmup_steps)
@@ -369,7 +389,7 @@ def run_training_experiment(
     loss_fn = LabelSmoothingLoss(vocab_size=len(tgt_vocab),
                                  pad_idx=PAD_IDX, smoothing=smoothing)
 
-    # ─── train ────────────────────────────────────────────────────────
+    # training loop
     best_bleu = -1.0
     for epoch in range(1, epochs + 1):
         run_epoch(train_loader, model, loss_fn, optimizer, scheduler,
@@ -387,7 +407,7 @@ def run_training_experiment(
             save_checkpoint(model, optimizer, scheduler, epoch, path=save_path,
                             src_vocab=src_vocab, tgt_vocab=tgt_vocab)
 
-    # ─── final test BLEU ─────────────────────────────────────────────
+    # final test BLEU using best saved checkpoint
     load_checkpoint(save_path, model)
     model.to(device)
     test_bleu = evaluate_bleu(model, test_loader, tgt_vocab, device=device, max_len=100)
