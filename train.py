@@ -191,7 +191,7 @@ def _corpus_bleu(hypotheses: List[List[str]], references: List[List[str]]) -> fl
         import sacrebleu
         hyp_strs = [" ".join(h) for h in hypotheses]
         ref_strs = [" ".join(r) for r in references]
-        return float(sacrebleu.corpus_bleu(hyp_strs, [ref_strs]).score)
+        return float(sacrebleu.corpus_bleu(hyp_strs, [ref_strs], force=True).score)
     except Exception:
         pass
     try:
