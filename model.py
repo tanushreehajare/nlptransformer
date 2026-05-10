@@ -371,7 +371,7 @@ _DEFAULT_CONFIG = dict(
     dropout=0.1,
 )
 # Replace this with the actual trained-checkpoint Drive ID before submission.
-_DEFAULT_CHECKPOINT_GDRIVE_ID = "REPLACE_WITH_YOUR_GDRIVE_ID"
+_DEFAULT_CHECKPOINT_GDRIVE_ID = "1sORKcJ61kb6aorkrTdZeFquRqwk-Kb91"
 _DEFAULT_CHECKPOINT_PATH = "checkpoint.pt"
 
 
@@ -457,7 +457,7 @@ class Transformer(nn.Module):
     # ─── checkpoint download helper ──────────────────────────────────
     def _maybe_download_and_load(self, path: str, gdrive_id: str) -> None:
         if not os.path.isfile(path):
-            if gdrive_id and gdrive_id != "REPLACE_WITH_YOUR_GDRIVE_ID" and gdown is not None:
+            if gdrive_id and gdrive_id != "1sORKcJ61kb6aorkrTdZeFquRqwk-Kb91" and gdown is not None:
                 try:
                     gdown.download(id=gdrive_id, output=path, quiet=False)
                 except Exception as e:  # pragma: no cover
