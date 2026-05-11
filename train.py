@@ -391,17 +391,14 @@ def run_training_experiment(
             save_checkpoint(model, optimizer, scheduler, epoch, path=save_path,
                             src_vocab=src_vocab, tgt_vocab=tgt_vocab)
 
-    # Final evaluation with beam search on test set
+    # Final evaluation (greedy) on test set using best checkpoint
     load_checkpoint(save_path, model)
     model.to(device)
-    test_bleu_greedy = evaluate_bleu(model, test_loader, tgt_vocab,
-                                     device=device, max_len=100, use_beam=False)
-    test_bleu_beam   = evaluate_bleu(model, test_loader, tgt_vocab,
-                                     device=device, max_len=100, use_beam=True, beam_size=4)
-    print(f"[FINAL] test BLEU greedy={test_bleu_greedy:.2f}  beam={test_bleu_beam:.2f}")
+    test_bleu = evaluate_bleu(model, test_loader, tgt_vocab,
+                              device=device, max_len=100, use_beam=False)
+    print(f"[FINAL] test BLEU = {test_bleu:.2f}")
     if wandb_run is not None:
-        wandb_run.log({"test/bleu_greedy": test_bleu_greedy,
-                       "test/bleu_beam":   test_bleu_beam})
+        wandb_run.log({"test/bleu": test_bleu})
         wandb_run.finish()
 
 
