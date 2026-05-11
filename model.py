@@ -352,7 +352,7 @@ class LearnedPositionalEmbedding(nn.Module):
 # ── IMPORTANT: This is the Google Drive file ID of checkpoint_best.pt ──
 # The autograder instantiates Transformer() with no args and calls infer().
 # __init__ ALWAYS downloads + loads this checkpoint automatically.
-_DEFAULT_CHECKPOINT_GDRIVE_ID = "1sORKcJ61kb6aorkrTdZeFquRqwk-Kb91"
+_DEFAULT_CHECKPOINT_GDRIVE_ID = "1LGKmaSJLqe9JTcd0E-yB5JL0nB5VKjZd"
 _DEFAULT_CHECKPOINT_PATH      = "checkpoint.pt"
 
 
@@ -380,10 +380,10 @@ class Transformer(nn.Module):
         self,
         src_vocab_size:  int   = 7853,   # exact size from training
         tgt_vocab_size:  int   = 5893,   # exact size from training
-        d_model:         int   = 256,
-        N:               int   = 3,
+        d_model:         int   = 512,
+        N:               int   = 6,
         num_heads:       int   = 8,
-        d_ff:            int   = 1024,
+        d_ff:            int   = 2048,
         dropout:         float = 0.1,
         max_len:         int   = 512,
         pad_idx:         int   = 1,
