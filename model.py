@@ -431,7 +431,6 @@ class Transformer(nn.Module):
         # Vocabulary + spacy (loaded from checkpoint)
         self.src_vocab  = None
         self.tgt_vocab  = None
-        self._spacy_de  = None
 
         # ── ALWAYS download + load the checkpoint ──────────────────────
         # This runs unconditionally so that Transformer() with NO args
@@ -523,23 +522,29 @@ class Transformer(nn.Module):
     #  INFERENCE
     # ════════════════════════════════════════════════════════════════
 
-    def _ensure_spacy_de(self):
-        if self._spacy_de is None:
-            import spacy
-            try:
-                self._spacy_de = spacy.load("de_core_news_sm")
-            except OSError:
-                from spacy.cli import download as spacy_dl
-                spacy_dl("de_core_news_sm")
-                self._spacy_de = spacy.load("de_core_news_sm")
-        return self._spacy_de
+    @staticmethod
+    def _tokenize_de(sentence: str):
+        """
+        Lightweight German tokenizer — no spaCy required at inference time.
+
+        Replicates spaCy's whitespace+punctuation splitting by inserting spaces
+        around punctuation before splitting on whitespace.  Matches how the
+        training vocabulary was built (spaCy tokenizer + lowercased).
+        Works in any environment without de_core_news_sm installed.
+        """
+        import re
+        # Split on whitespace, also separate punctuation from words
+        tokens = re.findall(r"[\w]+|[^\w\s]", sentence, re.UNICODE)
+        return [t.lower() for t in tokens]
+
 
     @torch.no_grad()
     def infer(self, src_sentence: str, max_len: Optional[int] = None) -> str:
         """
         Translate a German sentence to English using greedy decoding.
 
-        Works immediately after Transformer() — no extra setup needed.
+        Works immediately after Transformer() with NO arguments — no spaCy
+        model installation required at inference time.
         Raises RuntimeError only if the checkpoint was unavailable at init.
         """
         if self.src_vocab is None or self.tgt_vocab is None:
@@ -552,9 +557,8 @@ class Transformer(nn.Module):
         was_training = self.training
         self.eval()
 
-        # Tokenise German input with spaCy
-        nlp    = self._ensure_spacy_de()
-        tokens = [tok.text.lower() for tok in nlp.tokenizer(src_sentence.strip())]
+        # Pure-Python tokenisation — no spaCy needed
+        tokens = self._tokenize_de(src_sentence)
         ids    = [self.sos_idx] + [self.src_vocab[t] for t in tokens] + [self.eos_idx]
         src    = torch.tensor(ids, dtype=torch.long, device=device).unsqueeze(0)
         src_mask = make_src_mask(src, pad_idx=self.pad_idx)
