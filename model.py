@@ -453,7 +453,12 @@ class Transformer(nn.Module):
         then load model weights and vocabulary from it.
         Called unconditionally from __init__ so Transformer() always
         self-initialises for infer().
+        Pass checkpoint_path="__skip__" to skip download entirely (used
+        when training from scratch in run_training_experiment).
         """
+        # Sentinel: training from scratch — do not download anything
+        if path == "__skip__":
+            return
         # Step 1: download if file missing
         if not os.path.isfile(path):
             if gdown is not None and gdrive_id:
